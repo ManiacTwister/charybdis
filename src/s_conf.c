@@ -759,7 +759,10 @@ set_default_conf(void)
 		UMODE_OPERWALL | UMODE_WALLOP;
 	ConfigFileEntry.oper_only_umodes = UMODE_SERVNOTICE;
 	ConfigFileEntry.oper_snomask = SNO_GENERAL;
-
+	
+	ConfigChannel.admin_on_channel_create = YES;
+	ConfigChannel.use_halfop = YES;
+	ConfigChannel.use_admin = YES;
 	ConfigChannel.use_except = YES;
 	ConfigChannel.use_invex = YES;
 	ConfigChannel.use_forward = YES;

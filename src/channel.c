@@ -187,32 +187,72 @@ find_channel_membership(struct Channel *chptr, struct Client *client_p)
 	return NULL;
 }
 
+
+ int
+ is_halfop(struct membership *msptr)
+ {
+ 	if(!ConfigChannel.use_halfop)
+ 		return 0;
+	if(is_chmode_h(msptr))
+		return 1;
+ 	else
+ 		return 0;
+ }
+
+ int
+ is_admin(struct membership *msptr)
+ {
+ 	if(!ConfigChannel.use_admin)
+ 		return 0;
+	if(is_chmode_a(msptr))
+		return 1;
+ 	else
+ 		return 0;
+ }
+
+
+
 /* find_channel_status()
  *
  * input	- membership to get status for, whether we can combine flags
  * output	- flags of user on channel
  * side effects -
  */
+
 const char *
 find_channel_status(struct membership *msptr, int combine)
 {
-	static char buffer[3];
-	char *p;
+        static char buffer[5];
+        char *p;
 
-	p = buffer;
+        p = buffer;
 
-	if(is_chanop(msptr))
-	{
-		if(!combine)
-			return "@";
-		*p++ = '@';
-	}
+        if(is_admin(msptr))
+        {
+                if(!combine)
+                        return "!";
+                *p++ = '!';
+        }
 
-	if(is_voiced(msptr))
-		*p++ = '+';
+        if(is_chanop(msptr))
+        {
+                if(!combine)
+                        return "@";
+                *p++ = '@';
+        }
 
-	*p = '\0';
-	return buffer;
+        if(is_halfop(msptr))
+        {
+                if(!combine)
+                        return "%";
+                *p++ = '%';
+        }
+
+        if(is_voiced(msptr))
+                *p++ = '+';
+
+        *p = '\0';
+        return buffer;
 }
 
 /* add_user_to_channel()

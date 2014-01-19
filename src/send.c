@@ -584,9 +584,6 @@ sendto_channel_opmod(struct Client *one, struct Client *source_p,
 		if(IsIOError(target_p->from) || target_p->from == one)
 			continue;
 
-		if((msptr->flags & CHFL_CHANOP) == 0)
-			continue;
-
 		if(IsDeaf(target_p))
 			continue;
 

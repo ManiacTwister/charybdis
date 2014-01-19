@@ -602,6 +602,18 @@ static struct InfoStruct info_table[] = {
 		&ConfigChannel.only_ascii_channels,
 		"Controls whether non-ASCII is disabled for JOIN"
 	},
+      {
+              "use_halfop",
+              OUTPUT_BOOLEAN_YN,
+              &ConfigChannel.use_halfop,
+              "Enable chanmode +h (halfop)",
+      },
+      {
+              "use_admin",
+              OUTPUT_BOOLEAN_YN,
+              &ConfigChannel.use_admin,
+              "Enable chanmode +a (admin)",
+      },
 	{
 		"use_except",
 		OUTPUT_BOOLEAN_YN,

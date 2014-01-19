@@ -1,0 +1,123 @@
+--- src/chmode.c
++++ src/chmode.c
+@@ -177,8 +179,12 @@
+ static int
+ get_channel_access(struct Client *source_p, struct membership *msptr)
+ {
+-	if(!MyClient(source_p) || is_chanop(msptr))
++	if(!MyClient(source_p) || is_owner(msptr))
++		return CHFL_OWNER;
++	else if(is_chanop(msptr))
+ 		return CHFL_CHANOP;
++	else if(is_halfop(msptr))
++		return CHFL_HALFOP;
+ 
+ 	return CHFL_PEON;
+ }
+@@ -494,7 +500,7 @@
+ 	   int alevel, int parc, int *parn,
+ 	   const char **parv, int *errors, int dir, char c, long mode_type)
+ {
+-	if(alevel != CHFL_CHANOP)
++	if(alevel != CHFL_CHANOP && alevel != CHFL_OWNER && alevel != CHFL_HALFOP)
+ 	{
+ 		if(!(*errors & SM_ERR_NOOPS))
+ 			sendto_one(source_p, form_str(ERR_CHANOPRIVSNEEDED),
+@@ -708,7 +714,7 @@
+ 		*errors |= errorval;
+ 
+ 		/* non-ops cant see +eI lists.. */
+-		if(alevel != CHFL_CHANOP && mode_type != CHFL_BAN &&
++		if(alevel != CHFL_CHANOP && alevel != CHFL_OWNER && alevel != CHFL_HALFOP && mode_type != CHFL_BAN &&
+ 				mode_type != CHFL_QUIET)
+ 		{
+ 			if(!(*errors & SM_ERR_NOOPS))
+@@ -732,7 +738,7 @@
+ 		return;
+ 	}
+ 
+-	if(alevel != CHFL_CHANOP)
++	if(alevel != CHFL_CHANOP && alevel != CHFL_OWNER && alevel != CHFL_HALFOP)
+ 	{
+ 		if(!(*errors & SM_ERR_NOOPS))
+ 			sendto_one(source_p, form_str(ERR_CHANOPRIVSNEEDED),
+@@ -917,7 +1020,7 @@
+ 	const char *opnick;
+ 	struct Client *targ_p;
+ 
+-	if(alevel != CHFL_CHANOP)
++	if(alevel != CHFL_CHANOP && alevel != CHFL_OWNER)
+ 	{
+ 		if(!(*errors & SM_ERR_NOOPS))
+ 			sendto_one(source_p, form_str(ERR_CHANOPRIVSNEEDED),
+@@ -1102,7 +1302,7 @@
+ 	const char *opnick;
+ 	struct Client *targ_p;
+ 
+-	if(alevel != CHFL_CHANOP)
++	if(alevel != CHFL_CHANOP && alevel != CHFL_OWNER && alevel != CHFL_HALFOP)
+ 	{
+ 		if(!(*errors & SM_ERR_NOOPS))
+ 			sendto_one(source_p, form_str(ERR_CHANOPRIVSNEEDED),
+@@ -1180,7 +1380,7 @@
+ 	static char limitstr[30];
+ 	int limit;
+ 
+-	if(alevel != CHFL_CHANOP)
++	if(alevel != CHFL_CHANOP && alevel != CHFL_OWNER && alevel != CHFL_HALFOP)
+ 	{
+ 		if(!(*errors & SM_ERR_NOOPS))
+ 			sendto_one(source_p, form_str(ERR_CHANOPRIVSNEEDED),
+@@ -1239,7 +1439,7 @@
+ {
+ 	int joins = 0, timeslice = 0;
+ 
+-	if(alevel != CHFL_CHANOP)
++	if(alevel != CHFL_CHANOP && alevel != CHFL_OWNER && alevel != CHFL_HALFOP)
+ 	{
+ 		if(!(*errors & SM_ERR_NOOPS))
+ 			sendto_one(source_p, form_str(ERR_CHANOPRIVSNEEDED),
+@@ -1322,7 +1522,7 @@
+ 	}
+ 
+ #ifndef FORWARD_OPERONLY
+-	if(alevel != CHFL_CHANOP)
++	if(alevel != CHFL_CHANOP && alevel != CHFL_OWNER && alevel != CHFL_HALFOP)
+ 	{
+ 		if(!(*errors & SM_ERR_NOOPS))
+ 			sendto_one(source_p, form_str(ERR_CHANOPRIVSNEEDED),
+@@ -1414,7 +1614,7 @@
+ {
+ 	char *key;
+ 
+-	if(alevel != CHFL_CHANOP)
++	if(alevel != CHFL_CHANOP && alevel != CHFL_OWNER && alevel != CHFL_HALFOP)
+ 	{
+ 		if(!(*errors & SM_ERR_NOOPS))
+ 			sendto_one(source_p, form_str(ERR_CHANOPRIVSNEEDED),
+@@ -1491,7 +1691,7 @@
+ 	    int alevel, int parc, int *parn,
+ 	    const char **parv, int *errors, int dir, char c, long mode_type)
+ {
+-	if(alevel != CHFL_CHANOP)
++	if(alevel != CHFL_CHANOP && alevel != CHFL_OWNER && alevel != CHFL_HALFOP)
+ 	{
+ 		if(!(*errors & SM_ERR_NOOPS))
+ 			sendto_one(source_p, form_str(ERR_CHANOPRIVSNEEDED),
+@@ -1625,14 +1825,14 @@
+   {chm_nosuch,	0 },
+   {chm_nosuch,	0 },
+   {chm_nosuch,	0 },
+-  {chm_nosuch,	0 },			/* a */
++  {chm_owner,	0 },			/* a */
+   {chm_ban,	CHFL_BAN },		/* b */
+   {chm_simple,	MODE_NOCOLOR },		/* c */
+   {chm_nosuch,	0 },			/* d */
+   {chm_ban,	CHFL_EXCEPTION },	/* e */
+   {chm_forward,	0 },			/* f */
+   {chm_simple,	MODE_FREEINVITE },	/* g */
+-  {chm_nosuch,	0 },			/* h */
++  {chm_halfop,	0 },			/* h */
+   {chm_simple,	MODE_INVITEONLY },	/* i */
+   {chm_throttle, 0 },			/* j */
+   {chm_key,	0 },			/* k */

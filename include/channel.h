@@ -152,10 +152,14 @@ typedef int (*ExtbanFunc)(const char *data, struct Client *client_p,
 #define CHFL_BANNED		0x0008  /* cached as banned */
 #define CHFL_QUIETED		0x0010  /* cached as being +q victim */
 #define ONLY_SERVERS		0x0020
+#define CHFL_HALFOP		0x0040
+#define CHFL_ADMIN		0x0080
 #define ALL_MEMBERS		CHFL_PEON
 #define ONLY_CHANOPS		CHFL_CHANOP
 #define ONLY_CHANOPSVOICED	(CHFL_CHANOP|CHFL_VOICE)
 
+#define is_chmode_h(x)	((x) && (x)->flags & CHFL_HALFOP) /* does not check if halfop is enabled, should typically not be used */
+#define is_chmode_a(x)	((x) && (x)->flags & CHFL_ADMIN) /* does not check if admin is enabled, should typically not be used */
 #define is_chanop(x)	((x) && (x)->flags & CHFL_CHANOP)
 #define is_voiced(x)	((x) && (x)->flags & CHFL_VOICE)
 #define is_chanop_voiced(x) ((x) && (x)->flags & (CHFL_CHANOP|CHFL_VOICE))
@@ -283,5 +287,9 @@ const char * get_extban_string(void);
 extern int get_channel_access(struct Client *source_p, struct membership *msptr);
 
 extern void send_channel_join(struct Channel *chptr, struct Client *client_p);
+
+extern int is_halfop(struct membership *msptr);
+
+extern int is_admin(struct membership *msptr);
 
 #endif /* INCLUDED_channel_h */
