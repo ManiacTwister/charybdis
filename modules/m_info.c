@@ -243,6 +243,12 @@ static struct InfoStruct info_table[] = {
 		"Server connect/disconnect log file"
 	},
 	{
+		"fname_killlog",
+		OUTPUT_STRING,
+		&ConfigFileEntry.fname_killlog,
+		"KILL log file"
+	},
+	{
 		"fname_klinelog",
 		OUTPUT_STRING,
 		&ConfigFileEntry.fname_klinelog,
@@ -407,7 +413,7 @@ static struct InfoStruct info_table[] = {
 	{
 		"reject_after_count",
 		OUTPUT_DECIMAL,
-		&ConfigFileEntry.reject_after_count,   
+		&ConfigFileEntry.reject_after_count,
 		"Client rejection threshold setting",
 	},
 	{
@@ -479,13 +485,13 @@ static struct InfoStruct info_table[] = {
 	{
 		"throttle_count",
 		OUTPUT_DECIMAL,
-		&ConfigFileEntry.throttle_count, 
+		&ConfigFileEntry.throttle_count,
 		"Connection throttle threshold",
 	},
 	{
 		"throttle_duration",
 		OUTPUT_DECIMAL,
-		&ConfigFileEntry.throttle_duration, 
+		&ConfigFileEntry.throttle_duration,
 		"Connection throttle duration",
 	},
 	{
@@ -510,7 +516,7 @@ static struct InfoStruct info_table[] = {
 		"warn_no_nline",
 		OUTPUT_BOOLEAN,
 		&ConfigFileEntry.warn_no_nline,
-		"Display warning if connecting server lacks N-line"
+		"Display warning if connecting server lacks connect block"
 	},
 	{
 		"use_propagated_bans",
@@ -764,11 +770,11 @@ send_birthdate_online_time(struct Client *source_p)
 {
 	char tbuf[26]; /* this needs to be 26 - see ctime_r manpage */
 	sendto_one(source_p, ":%s %d %s :Birth Date: %s, compile # %s",
-			get_id(&me, source_p), RPL_INFO, 
+			get_id(&me, source_p), RPL_INFO,
 			get_id(source_p, source_p), creation, generation);
 
 	sendto_one(source_p, ":%s %d %s :On-line since %s",
-			get_id(&me, source_p), RPL_INFO, 
+			get_id(&me, source_p), RPL_INFO,
 			get_id(source_p, source_p), rb_ctime(startup_time, tbuf, sizeof(tbuf)));
 }
 
@@ -796,7 +802,7 @@ send_conf_options(struct Client *source_p)
 			sendto_one(source_p, ":%s %d %s :%-30s %-5d [%-30s]",
 					get_id(&me, source_p), RPL_INFO,
 					get_id(source_p, source_p),
-					infoptr->name, infoptr->intvalue, 
+					infoptr->name, infoptr->intvalue,
 					infoptr->desc);
 		}
 		else
@@ -804,7 +810,7 @@ send_conf_options(struct Client *source_p)
 			sendto_one(source_p, ":%s %d %s :%-30s %-5s [%-30s]",
 					get_id(&me, source_p), RPL_INFO,
 					get_id(source_p, source_p),
-					infoptr->name, infoptr->strvalue, 
+					infoptr->name, infoptr->strvalue,
 					infoptr->desc);
 		}
 	}
@@ -920,7 +926,7 @@ send_conf_options(struct Client *source_p)
 }
 
 /* info_spy()
- * 
+ *
  * input        - pointer to client
  * output       - none
  * side effects - hook doing_info is called

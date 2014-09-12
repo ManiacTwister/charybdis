@@ -155,6 +155,19 @@ ircd_shutdown(const char *reason)
 static void
 print_startup(int pid)
 {
+	int fd;
+
+	close(1);
+	fd = open("/dev/null", O_RDWR);
+	if (fd == -1) {
+		perror("open /dev/null");
+		exit(EXIT_FAILURE);
+	}
+	if (fd == 0)
+		fd = dup(fd);
+	if (fd != 1)
+		abort();
+
 	inotice("now running in %s mode from %s as pid %d ...",
 	       !server_state_foreground ? "background" : "foreground",
         	ConfigFileEntry.dpath, pid);
@@ -163,12 +176,10 @@ print_startup(int pid)
 	 * -- jilles */
 	if (!server_state_foreground)
 		write(0, ".", 1);
-	fclose(stdin);
-	fclose(stdout);
-	fclose(stderr);
-	open("/dev/null", O_RDWR);
-	dup2(0, 1);
-	dup2(0, 2);
+	if (dup2(1, 0) == -1)
+		abort();
+	if (dup2(1, 2) == -1)
+		abort();
 }
 
 /*
@@ -291,7 +302,7 @@ check_rehash(void *unused)
  *
  * inputs       - none
  * output       - none
- * side effects - This sets all global set options needed 
+ * side effects - This sets all global set options needed
  */
 static void
 initialize_global_set_options(void)
@@ -488,6 +499,7 @@ seed_with_urandom(void)
 			srand(seed);
 			return 1;
 		}
+		close(fd);
 	}
 	return 0;
 }
@@ -495,7 +507,7 @@ seed_with_urandom(void)
 static void
 seed_with_clock(void)
 {
- 	const struct timeval *tv;	
+ 	const struct timeval *tv;
 	rb_set_time();
 	tv = rb_current_time_tv();
 	srand(tv->tv_sec ^ (tv->tv_usec | (getpid() << 20)));
@@ -661,8 +673,8 @@ main(int argc, char *argv[])
 	read_conf_files(YES);	/* cold start init conf files */
 #ifndef STATIC_MODULES
 
-	mod_add_path(MODULE_DIR); 
-	mod_add_path(MODULE_DIR "/autoload"); 
+	mod_add_path(MODULE_DIR);
+	mod_add_path(MODULE_DIR "/autoload");
 #endif
 
 	init_isupport();

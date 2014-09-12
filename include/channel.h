@@ -113,17 +113,7 @@ struct ChModeChange
 	const char *arg;
 	const char *id;
 	int dir;
-	int caps;
-	int nocaps;
 	int mems;
-	struct Client *client;
-};
-
-struct ChCapCombo
-{
-	int count;
-	int cap_yes;
-	int cap_no;
 };
 
 typedef void (*ChannelModeFunc)(struct Client *source_p, struct Channel *chptr,
@@ -219,7 +209,7 @@ void free_ban(struct Ban *bptr);
 
 extern void destroy_channel(struct Channel *);
 
-extern int can_send(struct Channel *chptr, struct Client *who, 
+extern int can_send(struct Channel *chptr, struct Client *who,
 		    struct membership *);
 extern int flood_attack_channel(int p_or_n, struct Client *source_p,
 				struct Channel *chptr, char *chname);

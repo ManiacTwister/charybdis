@@ -2,9 +2,9 @@
  *  charybdis: A slightly useful ircd.
  *  chmode.c: channel mode management
  *
- * Copyright (C) 1990 Jarkko Oikarinen and University of Oulu, Co Center 
- * Copyright (C) 1996-2002 Hybrid Development Team 
- * Copyright (C) 2002-2005 ircd-ratbox development team 
+ * Copyright (C) 1990 Jarkko Oikarinen and University of Oulu, Co Center
+ * Copyright (C) 1996-2002 Hybrid Development Team
+ * Copyright (C) 2002-2005 ircd-ratbox development team
  * Copyright (C) 2005-2006 charybdis development team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -82,13 +82,13 @@ construct_cflags_strings(void)
 	int i;
         char *ptr = cflagsbuf;
 	char *ptr2 = cflagsmyinfo;
-        
+
         *ptr = '\0';
 	*ptr2 = '\0';
 
 	for(i = 0; i < 256; i++)
 	{
-		if( !(chmode_table[i].set_func == chm_ban) && 
+		if( !(chmode_table[i].set_func == chm_ban) &&
 			!(chmode_table[i].set_func == chm_forward) &&
 			!(chmode_table[i].set_func == chm_throttle) &&
                         !(chmode_table[i].set_func == chm_key) &&
@@ -104,7 +104,7 @@ construct_cflags_strings(void)
 		{
 			chmode_flags[i] = 0;
 		}
-                
+
 		switch (chmode_flags[i])
 		{
 		    case MODE_FREETARGET:
@@ -118,14 +118,14 @@ construct_cflags_strings(void)
 			    *ptr++ = (char) i;
 			}
 		}
-		
+
 		/* Should we leave orphaned check here? -- dwr */
 		if(!(chmode_table[i].set_func == chm_nosuch) && !(chmode_table[i].set_func == chm_orphaned))
 		{
 		    *ptr2++ = (char) i;
 		}
 	}
-        
+
         *ptr++ = '\0';
 	*ptr2++ = '\0';
 }
@@ -638,8 +638,6 @@ chm_simple(struct Client *source_p, struct Channel *chptr,
 
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_ADD;
-		mode_changes[mode_count].caps = 0;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].id = NULL;
 		mode_changes[mode_count].mems = ALL_MEMBERS;
 		mode_changes[mode_count++].arg = NULL;
@@ -650,8 +648,6 @@ chm_simple(struct Client *source_p, struct Channel *chptr,
 
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_DEL;
-		mode_changes[mode_count].caps = 0;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].mems = ALL_MEMBERS;
 		mode_changes[mode_count].id = NULL;
 		mode_changes[mode_count++].arg = NULL;
@@ -665,15 +661,13 @@ chm_orphaned(struct Client *source_p, struct Channel *chptr,
 {
 	if(MyClient(source_p))
 		return;
-        
+
 	if((dir == MODE_ADD) && !(chptr->mode.mode & mode_type))
 	{
 		chptr->mode.mode |= mode_type;
 
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_ADD;
-		mode_changes[mode_count].caps = 0;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].id = NULL;
 		mode_changes[mode_count].mems = ALL_MEMBERS;
 		mode_changes[mode_count++].arg = NULL;
@@ -684,8 +678,6 @@ chm_orphaned(struct Client *source_p, struct Channel *chptr,
 
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_DEL;
-		mode_changes[mode_count].caps = 0;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].mems = ALL_MEMBERS;
 		mode_changes[mode_count].id = NULL;
 		mode_changes[mode_count++].arg = NULL;
@@ -713,6 +705,9 @@ chm_staff(struct Client *source_p, struct Channel *chptr,
 		return;
 	}
 
+	if(!allow_mode_change(source_p, chptr, CHFL_CHANOP, errors, c))
+		return;
+
 	if(MyClient(source_p) && (++mode_limit_simple > MAXMODES_SIMPLE))
 		return;
 
@@ -723,8 +718,6 @@ chm_staff(struct Client *source_p, struct Channel *chptr,
 
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_ADD;
-		mode_changes[mode_count].caps = 0;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].id = NULL;
 		mode_changes[mode_count].mems = ALL_MEMBERS;
 		mode_changes[mode_count++].arg = NULL;
@@ -735,8 +728,6 @@ chm_staff(struct Client *source_p, struct Channel *chptr,
 
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_DEL;
-		mode_changes[mode_count].caps = 0;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].mems = ALL_MEMBERS;
 		mode_changes[mode_count].id = NULL;
 		mode_changes[mode_count++].arg = NULL;
@@ -748,14 +739,14 @@ chm_ban(struct Client *source_p, struct Channel *chptr,
 	int alevel, int parc, int *parn,
 	const char **parv, int *errors, int dir, char c, long mode_type)
 {
-	char *mask, *raw_mask, *forward;
+	const char *mask, *raw_mask;
+	char *forward;
 	rb_dlink_list *list;
 	rb_dlink_node *ptr;
 	struct Ban *banptr;
 	int errorval;
 	const char *rpl_list_p;
 	const char *rpl_endlist_p;
-	int caps;
 	int mems;
 
 	switch (mode_type)
@@ -766,7 +757,6 @@ chm_ban(struct Client *source_p, struct Channel *chptr,
 		rpl_list_p = form_str(RPL_BANLIST);
 		rpl_endlist_p = form_str(RPL_ENDOFBANLIST);
 		mems = ALL_MEMBERS;
-		caps = 0;
 		break;
 
 	case CHFL_EXCEPTION:
@@ -779,7 +769,6 @@ chm_ban(struct Client *source_p, struct Channel *chptr,
 		errorval = SM_ERR_RPL_E;
 		rpl_list_p = form_str(RPL_EXCEPTLIST);
 		rpl_endlist_p = form_str(RPL_ENDOFEXCEPTLIST);
-		caps = CAP_EX;
 
 		if(ConfigChannel.use_except || (dir == MODE_DEL))
 			mems = ONLY_CHANOPS;
@@ -797,7 +786,6 @@ chm_ban(struct Client *source_p, struct Channel *chptr,
 		errorval = SM_ERR_RPL_I;
 		rpl_list_p = form_str(RPL_INVITELIST);
 		rpl_endlist_p = form_str(RPL_ENDOFINVITELIST);
-		caps = CAP_IE;
 
 		if(ConfigChannel.use_invex || (dir == MODE_DEL))
 			mems = ONLY_CHANOPS;
@@ -811,7 +799,6 @@ chm_ban(struct Client *source_p, struct Channel *chptr,
 		rpl_list_p = form_str(RPL_QUIETLIST);
 		rpl_endlist_p = form_str(RPL_ENDOFQUIETLIST);
 		mems = ALL_MEMBERS;
-		caps = 0;
 		break;
 
 	default:
@@ -956,8 +943,6 @@ chm_ban(struct Client *source_p, struct Channel *chptr,
 
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_ADD;
-		mode_changes[mode_count].caps = caps;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].mems = mems;
 		mode_changes[mode_count].id = NULL;
 		mode_changes[mode_count++].arg = mask;
@@ -986,8 +971,6 @@ chm_ban(struct Client *source_p, struct Channel *chptr,
 
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_DEL;
-		mode_changes[mode_count].caps = caps;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].mems = mems;
 		mode_changes[mode_count].id = NULL;
 		mode_changes[mode_count++].arg = buf + old_removed_mask_pos;
@@ -1138,12 +1121,9 @@ chm_op(struct Client *source_p, struct Channel *chptr,
 
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_ADD;
-		mode_changes[mode_count].caps = 0;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].mems = ALL_MEMBERS;
 		mode_changes[mode_count].id = targ_p->id;
-		mode_changes[mode_count].arg = targ_p->name;
-		mode_changes[mode_count++].client = targ_p;
+		mode_changes[mode_count++].arg = targ_p->name;
 
 		mstptr->flags |= CHFL_CHANOP;
 	}
@@ -1158,12 +1138,9 @@ chm_op(struct Client *source_p, struct Channel *chptr,
 
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_DEL;
-		mode_changes[mode_count].caps = 0;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].mems = ALL_MEMBERS;
 		mode_changes[mode_count].id = targ_p->id;
-		mode_changes[mode_count].arg = targ_p->name;
-		mode_changes[mode_count++].client = targ_p;
+		mode_changes[mode_count++].arg = targ_p->name;
 
 		mstptr->flags &= ~CHFL_CHANOP;
 	}
@@ -1312,12 +1289,9 @@ chm_voice(struct Client *source_p, struct Channel *chptr,
 	{
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_ADD;
-		mode_changes[mode_count].caps = 0;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].mems = ALL_MEMBERS;
 		mode_changes[mode_count].id = targ_p->id;
-		mode_changes[mode_count].arg = targ_p->name;
-		mode_changes[mode_count++].client = targ_p;
+		mode_changes[mode_count++].arg = targ_p->name;
 
 		mstptr->flags |= CHFL_VOICE;
 	}
@@ -1325,12 +1299,9 @@ chm_voice(struct Client *source_p, struct Channel *chptr,
 	{
 		mode_changes[mode_count].letter = 'v';
 		mode_changes[mode_count].dir = MODE_DEL;
-		mode_changes[mode_count].caps = 0;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].mems = ALL_MEMBERS;
 		mode_changes[mode_count].id = targ_p->id;
-		mode_changes[mode_count].arg = targ_p->name;
-		mode_changes[mode_count++].client = targ_p;
+		mode_changes[mode_count++].arg = targ_p->name;
 
 		mstptr->flags &= ~CHFL_VOICE;
 	}
@@ -1366,8 +1337,6 @@ chm_limit(struct Client *source_p, struct Channel *chptr,
 
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_ADD;
-		mode_changes[mode_count].caps = 0;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].mems = ALL_MEMBERS;
 		mode_changes[mode_count].id = NULL;
 		mode_changes[mode_count++].arg = limitstr;
@@ -1383,8 +1352,6 @@ chm_limit(struct Client *source_p, struct Channel *chptr,
 
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_DEL;
-		mode_changes[mode_count].caps = 0;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].mems = ALL_MEMBERS;
 		mode_changes[mode_count].id = NULL;
 		mode_changes[mode_count++].arg = NULL;
@@ -1416,8 +1383,6 @@ chm_throttle(struct Client *source_p, struct Channel *chptr,
 
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_ADD;
-		mode_changes[mode_count].caps = 0;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].mems = ALL_MEMBERS;
 		mode_changes[mode_count].id = NULL;
 		mode_changes[mode_count++].arg = parv[(*parn)];
@@ -1439,8 +1404,6 @@ chm_throttle(struct Client *source_p, struct Channel *chptr,
 
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_DEL;
-		mode_changes[mode_count].caps = 0;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].mems = ALL_MEMBERS;
 		mode_changes[mode_count].id = NULL;
 		mode_changes[mode_count++].arg = NULL;
@@ -1503,8 +1466,6 @@ chm_forward(struct Client *source_p, struct Channel *chptr,
 
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_ADD;
-		mode_changes[mode_count].caps = 0;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].mems =
 			ConfigChannel.use_forward ? ALL_MEMBERS : ONLY_SERVERS;
 		mode_changes[mode_count].id = NULL;
@@ -1519,8 +1480,6 @@ chm_forward(struct Client *source_p, struct Channel *chptr,
 
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_DEL;
-		mode_changes[mode_count].caps = 0;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].mems = ALL_MEMBERS;
 		mode_changes[mode_count].id = NULL;
 		mode_changes[mode_count++].arg = NULL;
@@ -1561,8 +1520,6 @@ chm_key(struct Client *source_p, struct Channel *chptr,
 
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_ADD;
-		mode_changes[mode_count].caps = 0;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].mems = ALL_MEMBERS;
 		mode_changes[mode_count].id = NULL;
 		mode_changes[mode_count++].arg = chptr->mode.key;
@@ -1592,8 +1549,6 @@ chm_key(struct Client *source_p, struct Channel *chptr,
 
 		mode_changes[mode_count].letter = c;
 		mode_changes[mode_count].dir = MODE_DEL;
-		mode_changes[mode_count].caps = 0;
-		mode_changes[mode_count].nocaps = 0;
 		mode_changes[mode_count].mems = ALL_MEMBERS;
 		mode_changes[mode_count].id = NULL;
 		mode_changes[mode_count++].arg = "*";
@@ -1876,7 +1831,7 @@ struct ChannelMode chmode_table[256] =
 /* set_channel_mode()
  *
  * inputs	- client, source, channel, membership pointer, params
- * output	- 
+ * output	-
  * side effects - channel modes/memberships are changed, MODE is issued
  *
  * Extensively modified to be hotpluggable, 03/09/06 -- nenolod
@@ -2028,7 +1983,7 @@ set_channel_mode(struct Client *client_p, struct Client *source_p,
 /* set_channel_mlock()
  *
  * inputs	- client, source, channel, params
- * output	- 
+ * output	-
  * side effects - channel mlock is changed / MLOCK is propagated
  */
 void

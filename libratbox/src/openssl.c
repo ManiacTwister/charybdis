@@ -14,7 +14,7 @@
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
- *  
+ *
  *  You should have received a copy of the GNU General Public License
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
@@ -313,9 +313,6 @@ rb_init_ssl(void)
 	}
 	/* Disable SSLv2, make the client use our settings */
 	SSL_CTX_set_options(ssl_server_ctx, SSL_OP_NO_SSLv2 | SSL_OP_CIPHER_SERVER_PREFERENCE
-#ifdef SSL_OP_NO_COMPRESSION
-			| SSL_OP_NO_COMPRESSION
-#endif
 #ifdef SSL_OP_SINGLE_DH_USE
 			| SSL_OP_SINGLE_DH_USE
 #endif
@@ -328,7 +325,11 @@ rb_init_ssl(void)
 	/* Set ECDHE on OpenSSL 1.00+, but make sure it's actually available because redhat are dicks
 	   and bastardise their OpenSSL for stupid reasons... */
 	#if (OPENSSL_VERSION_NUMBER >= 0x10000000) && defined(NID_secp384r1)
-		SSL_CTX_set_tmp_ecdh(ssl_server_ctx, EC_KEY_new_by_curve_name(NID_secp384r1));
+		EC_KEY *key = EC_KEY_new_by_curve_name(NID_secp384r1);
+		if (key) {
+			SSL_CTX_set_tmp_ecdh(ssl_server_ctx, key);
+			EC_KEY_free(key);
+		}
 #ifdef SSL_OP_SINGLE_ECDH_USE
 		SSL_CTX_set_options(ssl_server_ctx, SSL_OP_SINGLE_ECDH_USE);
 #endif
@@ -681,7 +682,7 @@ rb_supports_ssl(void)
 void
 rb_get_ssl_info(char *buf, size_t len)
 {
-	rb_snprintf(buf, len, "Using SSL: %s compiled: 0x%lx, library 0x%lx", 
+	rb_snprintf(buf, len, "Using SSL: %s compiled: 0x%lx, library 0x%lx",
 		    SSLeay_version(SSLEAY_VERSION),
 		    (long)OPENSSL_VERSION_NUMBER, SSLeay());
 }

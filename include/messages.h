@@ -43,7 +43,7 @@
 #define NUMERIC_STR_200      "Link %s %s %s"
 #define NUMERIC_STR_201      "Try. %s %s"
 #define NUMERIC_STR_202      "H.S. %s %s"
-#define NUMERIC_STR_203      "???? %s %s (%s) %d"
+#define NUMERIC_STR_203      "???? %s %s (%s) %lu"
 #define NUMERIC_STR_204      "Oper %s %s (%s) %lu %lu"
 #define NUMERIC_STR_205      "User %s %s (%s) %lu %lu"
 #define NUMERIC_STR_206      "Serv %s %dS %dC %s %s!%s@%s %lu"
@@ -94,7 +94,7 @@
 #define NUMERIC_STR_313      "%s :%s"
 #define NUMERIC_STR_314      ":%s 314 %s %s %s %s * :%s"
 #define NUMERIC_STR_315      ":%s 315 %s %s :End of /WHO list."
-#define NUMERIC_STR_317      "%s %d %d :seconds idle, signon time"
+#define NUMERIC_STR_317      "%s %ld %lu :seconds idle, signon time"
 #define NUMERIC_STR_318      "%s :End of /WHOIS list."
 #define NUMERIC_STR_319      ":%s 319 %s %s :"
 #define NUMERIC_STR_321      ":%s 321 %s Channel :Users  Name"
@@ -117,7 +117,7 @@
 #ifndef CUSTOM_BRANDING
 #define NUMERIC_STR_351      "%s(%s). %s :%s TS%dow %s"
 #else
-#define NUMERIC_STR_351      "%s(%s, %s). %s :%s TS%dow %s"
+#define NUMERIC_STR_351      "%s(%s,%s). %s :%s TS%dow %s"
 #endif
 #define NUMERIC_STR_352      ":%s 352 %s %s %s %s %s %s %s :%d %s"
 #define NUMERIC_STR_353      ":%s 353 %s %s %s :"
@@ -202,7 +202,7 @@
 #define NUMERIC_STR_670      ":STARTTLS successful, proceed with TLS handshake"
 #define NUMERIC_STR_671      "%s :is using a secure connection"
 #define NUMERIC_STR_691      ":%s"
-#define NUMERIC_STR_702      ":%s 702 %s %s 0x%x %s %s"
+#define NUMERIC_STR_702      ":%s 702 %s %s 0x%lx %s %s"
 #define NUMERIC_STR_703      ":%s 703 %s :End of /MODLIST."
 #define NUMERIC_STR_704      ":%s 704 %s %s :%s"
 #define NUMERIC_STR_705      ":%s 705 %s %s :%s"

@@ -52,7 +52,7 @@
 #if defined(NO_IN6ADDR_ANY) && defined(RB_IPV6)
 static const struct in6_addr in6addr_any =
 { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 } } };
-#endif 
+#endif
 
 static struct Listener *ListenerPollList = NULL;
 static int accept_precallback(rb_fde_t *F, struct sockaddr *addr, rb_socklen_t addrlen, void *data);
@@ -102,6 +102,20 @@ free_listener(struct Listener *listener)
 #define PORTNAMELEN 6		/* ":31337" */
 
 /*
+ * get_listener_port - return displayable listener port
+ */
+static uint16_t
+get_listener_port(const struct Listener *listener)
+{
+#ifdef RB_IPV6
+	if(listener->addr.ss_family == AF_INET6)
+		return ntohs(((const struct sockaddr_in6 *)&listener->addr)->sin6_port);
+	else
+#endif
+		return ntohs(((const struct sockaddr_in *)&listener->addr)->sin_port);
+}
+
+/*
  * get_listener_name - return displayable listener name and port
  * returns "host.foo.org:6667" for a given listener
  */
@@ -109,20 +123,13 @@ const char *
 get_listener_name(const struct Listener *listener)
 {
 	static char buf[HOSTLEN + HOSTLEN + PORTNAMELEN + 4];
-	int port = 0;
 
 	s_assert(NULL != listener);
 	if(listener == NULL)
 		return NULL;
 
-#ifdef RB_IPV6
-	if(listener->addr.ss_family == AF_INET6)
-		port = ntohs(((const struct sockaddr_in6 *)&listener->addr)->sin6_port);
-	else
-#endif
-		port = ntohs(((const struct sockaddr_in *)&listener->addr)->sin_port);	
-
-	rb_snprintf(buf, sizeof(buf), "%s[%s/%u]", me.name, listener->name, port);
+	rb_snprintf(buf, sizeof(buf), "%s[%s/%u]",
+			me.name, listener->name, get_listener_port(listener));
 	return buf;
 }
 
@@ -139,14 +146,9 @@ show_ports(struct Client *source_p)
 
 	for (listener = ListenerPollList; listener; listener = listener->next)
 	{
-		sendto_one_numeric(source_p, RPL_STATSPLINE, 
-				   form_str(RPL_STATSPLINE), 'P',
-#ifdef RB_IPV6
-			   ntohs(listener->addr.ss_family == AF_INET ? ((struct sockaddr_in *)&listener->addr)->sin_port :
-			   	 ((struct sockaddr_in6 *)&listener->addr)->sin6_port),
-#else
-			   ntohs(((struct sockaddr_in *)&listener->addr)->sin_port),
-#endif
+		sendto_one_numeric(source_p, RPL_STATSPLINE,
+			   form_str(RPL_STATSPLINE), 'P',
+			   get_listener_port(listener),
 			   IsOperAdmin(source_p) ? listener->name : me.name,
 			   listener->ref_count, (listener->active) ? "active" : "disabled",
 			   listener->ssl ? " ssl" : "");
@@ -171,11 +173,12 @@ inetport(struct Listener *listener)
 {
 	rb_fde_t *F;
 	int opt = 1;
+	const char *errstr;
 
 	/*
 	 * At first, open a new socket
 	 */
-	
+
 	F = rb_socket(GET_SS_FAMILY(&listener->addr), SOCK_STREAM, 0, "Listener socket");
 
 #ifdef RB_IPV6
@@ -195,17 +198,26 @@ inetport(struct Listener *listener)
 		{
 			rb_inet_ntop(AF_INET, &in->sin_addr, listener->vhost, sizeof(listener->vhost));
 			listener->name = listener->vhost;
-		}	
+		}
 	}
 
 	if(F == NULL)
 	{
-		ilog_error("opening listener socket");
+		sendto_realops_snomask(SNO_GENERAL, L_ALL,
+				"Cannot open socket for listener on port %d",
+				get_listener_port(listener));
+		ilog(L_MAIN, "Cannot open socket for listener %s",
+				get_listener_name(listener));
 		return 0;
 	}
 	else if((maxconnections - 10) < rb_get_fd(F)) /* XXX this is kinda bogus*/
 	{
 		ilog_error("no more connections left for listener");
+		sendto_realops_snomask(SNO_GENERAL, L_ALL,
+				"No more connections left for listener on port %d",
+				get_listener_port(listener));
+		ilog(L_MAIN, "No more connections left for listener %s",
+				get_listener_name(listener));
 		rb_close(F);
 		return 0;
 	}
@@ -216,7 +228,12 @@ inetport(struct Listener *listener)
 	 */
 	if(setsockopt(rb_get_fd(F), SOL_SOCKET, SO_REUSEADDR, (char *) &opt, sizeof(opt)))
 	{
-		ilog_error("setting SO_REUSEADDR for listener");
+		errstr = strerror(rb_get_sockerr(F));
+		sendto_realops_snomask(SNO_GENERAL, L_ALL,
+				"Cannot set SO_REUSEADDR for listener on port %d: %s",
+				get_listener_port(listener), errstr);
+		ilog(L_MAIN, "Cannot set SO_REUSEADDR for listener %s: %s",
+				get_listener_name(listener), errstr);
 		rb_close(F);
 		return 0;
 	}
@@ -228,14 +245,24 @@ inetport(struct Listener *listener)
 
 	if(bind(rb_get_fd(F), (struct sockaddr *) &listener->addr, GET_SS_LEN(&listener->addr)))
 	{
-		ilog_error("binding listener socket");
+		errstr = strerror(rb_get_sockerr(F));
+		sendto_realops_snomask(SNO_GENERAL, L_ALL,
+				"Cannot bind for listener on port %d: %s",
+				get_listener_port(listener), errstr);
+		ilog(L_MAIN, "Cannot bind for listener %s: %s",
+				get_listener_name(listener), errstr);
 		rb_close(F);
 		return 0;
 	}
 
 	if(rb_listen(F, RATBOX_SOMAXCONN, listener->defer_accept))
 	{
-		ilog_error("listen()");
+		errstr = strerror(rb_get_sockerr(F));
+		sendto_realops_snomask(SNO_GENERAL, L_ALL,
+				"Cannot listen() for listener on port %d: %s",
+				get_listener_port(listener), errstr);
+		ilog(L_MAIN, "Cannot listen() for listener %s: %s",
+				get_listener_name(listener), errstr);
 		rb_close(F);
 		return 0;
 	}
@@ -256,14 +283,14 @@ find_listener(struct rb_sockaddr_storage *addr)
 	{
 		if(addr->ss_family != listener->addr.ss_family)
 			continue;
-		
+
 		switch(addr->ss_family)
 		{
 			case AF_INET:
 			{
 				struct sockaddr_in *in4 = (struct sockaddr_in *)addr;
 				struct sockaddr_in *lin4 = (struct sockaddr_in *)&listener->addr;
-				if(in4->sin_addr.s_addr == lin4->sin_addr.s_addr && 
+				if(in4->sin_addr.s_addr == lin4->sin_addr.s_addr &&
 					in4->sin_port == lin4->sin_port )
 				{
 					if(listener->F == NULL)
@@ -287,7 +314,7 @@ find_listener(struct rb_sockaddr_storage *addr)
 						return(listener);
 				}
 				break;
-				
+
 			}
 #endif
 
@@ -325,13 +352,13 @@ add_listener(int port, const char *vhost_ip, int family, int ssl, int defer_acce
 		{
 			if(rb_inet_pton(family, vhost_ip, &((struct sockaddr_in *)&vaddr)->sin_addr) <= 0)
 				return;
-		} 
+		}
 #ifdef RB_IPV6
 		else
 		{
 			if(rb_inet_pton(family, vhost_ip, &((struct sockaddr_in6 *)&vaddr)->sin6_addr) <= 0)
 				return;
-		
+
 		}
 #endif
 	} else
@@ -348,7 +375,7 @@ add_listener(int port, const char *vhost_ip, int family, int ssl, int defer_acce
 			default:
 				return;
 #endif
-		} 
+		}
 	}
 	switch(family)
 	{
@@ -431,7 +458,7 @@ close_listeners()
 #define DLINE_WARNING "ERROR :You have been D-lined.\r\n"
 
 /*
- * add_connection - creates a client which has just connected to us on 
+ * add_connection - creates a client which has just connected to us on
  * the given fd. The sockhost field is initialized with the ip# of the host.
  * The client is sent to the auth module for verification, and not put in
  * any client list yet.
@@ -442,7 +469,7 @@ add_connection(struct Listener *listener, rb_fde_t *F, struct sockaddr *sai, str
 	struct Client *new_client;
 	s_assert(NULL != listener);
 
-	/* 
+	/*
 	 * get the client socket name from the socket
 	 * the client has already been checked out in accept_connection
 	 */
@@ -451,11 +478,11 @@ add_connection(struct Listener *listener, rb_fde_t *F, struct sockaddr *sai, str
 	memcpy(&new_client->localClient->ip, sai, sizeof(struct rb_sockaddr_storage));
 	memcpy(&new_client->preClient->lip, lai, sizeof(struct rb_sockaddr_storage));
 
-	/* 
+	/*
 	 * copy address to 'sockhost' as a string, copy it to host too
 	 * so we have something valid to put into error messages...
 	 */
-	rb_inet_ntop_sock((struct sockaddr *)&new_client->localClient->ip, new_client->sockhost, 
+	rb_inet_ntop_sock((struct sockaddr *)&new_client->localClient->ip, new_client->sockhost,
 		sizeof(new_client->sockhost));
 
 
@@ -503,7 +530,7 @@ accept_precallback(rb_fde_t *F, struct sockaddr *addr, rb_socklen_t addrlen, voi
 					     get_listener_name(listener));
 			last_oper_notice = rb_current_time();
 		}
-			
+
 		rb_write(F, "ERROR :All connections in use\r\n", 32);
 		rb_close(F);
 		return 0;
@@ -512,13 +539,13 @@ accept_precallback(rb_fde_t *F, struct sockaddr *addr, rb_socklen_t addrlen, voi
 	aconf = find_dline(addr, addr->sa_family);
 	if(aconf != NULL && (aconf->status & CONF_EXEMPTDLINE))
 		return 1;
-	
+
 	/* Do an initial check we aren't connecting too fast or with too many
 	 * from this IP... */
 	if(aconf != NULL)
 	{
 		ServerStats.is_ref++;
-			
+
 		if(ConfigFileEntry.dline_with_reason)
 		{
 			len = rb_snprintf(buf, sizeof(buf), "ERROR :*** Banned: %s\r\n", get_user_ban_reason(aconf));
@@ -531,7 +558,7 @@ accept_precallback(rb_fde_t *F, struct sockaddr *addr, rb_socklen_t addrlen, voi
 		}
 		else
 			strcpy(buf, "ERROR :You have been D-lined.\r\n");
-	
+
 		rb_write(F, buf, strlen(buf));
 		rb_close(F);
 		return 0;
@@ -539,7 +566,7 @@ accept_precallback(rb_fde_t *F, struct sockaddr *addr, rb_socklen_t addrlen, voi
 
 	if(check_reject(F, addr))
 		return 0;
-		
+
 	if(throttle_add(addr))
 	{
 		rb_write(F, toofast, strlen(toofast));
@@ -571,7 +598,7 @@ accept_callback(rb_fde_t *F, int status, struct sockaddr *addr, rb_socklen_t add
 	struct Listener *listener = data;
 	struct rb_sockaddr_storage lip;
 	unsigned int locallen = sizeof(struct rb_sockaddr_storage);
-	
+
 	ServerStats.is_ac++;
 
 	if(getsockname(rb_get_fd(F), (struct sockaddr *) &lip, &locallen) < 0)
@@ -580,7 +607,7 @@ accept_callback(rb_fde_t *F, int status, struct sockaddr *addr, rb_socklen_t add
 		rb_close(F);
 		return;
 	}
-	
+
 	if(listener->ssl)
 		accept_ssld(F, addr, (struct sockaddr *)&lip, listener);
 	else

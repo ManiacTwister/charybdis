@@ -40,18 +40,6 @@
 #include "match.h"
 
 
-
-/* -TimeMr14C:
- * I have moved the dl* function definitions and
- * the two functions (load_a_module / unload_a_module) to the
- * file dynlink.c 
- * And also made the necessary changes to those functions
- * to comply with shl_load and friends.
- * In this file, to keep consistency with the makefile, 
- * I added the ability to load *.sl files, too.
- * 27/02/2002
- */
-
 #ifndef STATIC_MODULES
 
 struct module **modlist = NULL;
@@ -130,17 +118,17 @@ modules_init(void)
  * output	- none
  * side effects - returns a module path from path
  */
-static struct module_path *
+static char *
 mod_find_path(const char *path)
 {
 	rb_dlink_node *ptr;
-	struct module_path *mpath;
+	char *mpath;
 
 	RB_DLINK_FOREACH(ptr, mod_paths.head)
 	{
 		mpath = ptr->data;
 
-		if(!strcmp(path, mpath->path))
+		if(!strcmp(path, mpath))
 			return mpath;
 	}
 
@@ -150,20 +138,18 @@ mod_find_path(const char *path)
 /* mod_add_path
  *
  * input	- path
- * ouput	- 
+ * ouput	-
  * side effects - adds path to list
  */
 void
 mod_add_path(const char *path)
 {
-	struct module_path *pathst;
+	char *pathst;
 
 	if(mod_find_path(path))
 		return;
 
-	pathst = rb_malloc(sizeof(struct module_path));
-
-	strcpy(pathst->path, path);
+	pathst = rb_strdup(path);
 	rb_dlinkAddAlloc(pathst, &mod_paths);
 }
 
@@ -224,7 +210,7 @@ load_all_modules(int warn)
 
 	modules_init();
 
-	modlist = (struct module **) rb_malloc(sizeof(struct module) * (MODS_INCREMENT));
+	modlist = (struct module **) rb_malloc(sizeof(struct module *) * (MODS_INCREMENT));
 
 	max_mods = MODS_INCREMENT;
 
@@ -288,18 +274,18 @@ load_one_module(const char *path, int coremodule)
 {
 	char modpath[PATH_MAX];
 	rb_dlink_node *pathst;
-	struct module_path *mpath;
+	const char *mpath;
 
 	struct stat statbuf;
 
 	if (server_state_foreground == 1)
-		inotice("loading module %s ...", path);	
+		inotice("loading module %s ...", path);
 
 	RB_DLINK_FOREACH(pathst, mod_paths.head)
 	{
 		mpath = pathst->data;
 
-		rb_snprintf(modpath, sizeof(modpath), "%s/%s", mpath->path, path);
+		rb_snprintf(modpath, sizeof(modpath), "%s/%s", mpath, path);
 		if((strstr(modpath, "../") == NULL) && (strstr(modpath, "/..") == NULL))
 		{
 			if(stat(modpath, &statbuf) == 0)
@@ -458,7 +444,7 @@ mo_modlist(struct Client *client_p, struct Client *source_p, int parc, const cha
 				sendto_one(source_p, form_str(RPL_MODLIST),
 					   me.name, source_p->name,
 					   modlist[i]->name,
-					   modlist[i]->address,
+					   (unsigned long)(uintptr_t)modlist[i]->address,
 					   modlist[i]->version, modlist[i]->core ? "(core)" : "");
 			}
 		}
@@ -466,7 +452,8 @@ mo_modlist(struct Client *client_p, struct Client *source_p, int parc, const cha
 		{
 			sendto_one(source_p, form_str(RPL_MODLIST),
 				   me.name, source_p->name, modlist[i]->name,
-				   modlist[i]->address, modlist[i]->version,
+				   (unsigned long)(uintptr_t)modlist[i]->address,
+				   modlist[i]->version,
 				   modlist[i]->core ? "(core)" : "");
 		}
 	}
@@ -692,9 +679,9 @@ unload_one_module(const char *name, int warn)
 	/*
 	 ** XXX - The type system in C does not allow direct conversion between
 	 ** data and function pointers, but as it happens, most C compilers will
-	 ** safely do this, however it is a theoretical overlow to cast as we 
-	 ** must do here.  I have library functions to take care of this, but 
-	 ** despite being more "correct" for the C language, this is more 
+	 ** safely do this, however it is a theoretical overlow to cast as we
+	 ** must do here.  I have library functions to take care of this, but
+	 ** despite being more "correct" for the C language, this is more
 	 ** practical.  Removing the abuse of the ability to cast ANY pointer
 	 ** to and from an integer value here will break some compilers.
 	 **          -jmallett
@@ -739,7 +726,7 @@ unload_one_module(const char *name, int warn)
 
 	rb_free(modlist[modindex]->name);
 	memmove(&modlist[modindex], &modlist[modindex + 1],
-	       sizeof(struct module) * ((num_mods - 1) - modindex));
+	       sizeof(struct module *) * ((num_mods - 1) - modindex));
 
 	if(num_mods != 0)
 		num_mods--;
@@ -905,9 +892,9 @@ increase_modlist(void)
 	if((num_mods + 1) < max_mods)
 		return;
 
-	new_modlist = (struct module **) rb_malloc(sizeof(struct module) *
+	new_modlist = (struct module **) rb_malloc(sizeof(struct module *) *
 						  (max_mods + MODS_INCREMENT));
-	memcpy((void *) new_modlist, (void *) modlist, sizeof(struct module) * num_mods);
+	memcpy((void *) new_modlist, (void *) modlist, sizeof(struct module *) * num_mods);
 
 	rb_free(modlist);
 	modlist = new_modlist;

@@ -35,7 +35,7 @@
 static int yy_defer_accept = 1;
 
 struct TopConf *conf_cur_block;
-static char *conf_cur_block_name;
+static char *conf_cur_block_name = NULL;
 
 static rb_dlink_list conf_items;
 
@@ -65,7 +65,7 @@ static char *yy_privset_extends = NULL;
 static const char *
 conf_strtype(int type)
 {
-	switch (type & CF_MTYPE)
+	switch (CF_TYPE(type))
 	{
 	case CF_INT:
 		return "integer value";
@@ -83,7 +83,7 @@ conf_strtype(int type)
 }
 
 int
-add_top_conf(const char *name, int (*sfunc) (struct TopConf *), 
+add_top_conf(const char *name, int (*sfunc) (struct TopConf *),
 		int (*efunc) (struct TopConf *), struct ConfEntry *items)
 {
 	struct TopConf *tc;
@@ -290,10 +290,8 @@ conf_set_modules_module(void *data)
 
 	m_bn = rb_basename((char *) data);
 
-	if(findmodule_byname(m_bn) != -1)
-		return;
-
-	load_one_module((char *) data, 0);
+	if(findmodule_byname(m_bn) == -1)
+		load_one_module((char *) data, 0);
 
 	rb_free(m_bn);
 #else
@@ -426,7 +424,7 @@ set_modes_from_table(int *modes, const char *whatis, struct mode_table *tab, con
 		int dir = 1;
 		int mode;
 
-		if((args->type & CF_MTYPE) != CF_STRING)
+		if(CF_TYPE(args->type) != CF_STRING)
 		{
 			conf_report_error("Warning -- %s is not a string; ignoring.", whatis);
 			continue;
@@ -605,7 +603,7 @@ conf_end_oper(struct TopConf *tc)
 						yy_tmpoper->name);
 				return 0;
 			}
-				
+
 			yy_tmpoper->rsa_pubkey =
 				(RSA *) PEM_read_bio_RSA_PUBKEY(file, NULL, 0, NULL);
 
@@ -859,7 +857,7 @@ conf_set_listen_port_both(void *data, int ssl)
 	conf_parm_t *args = data;
 	for (; args; args = args->next)
 	{
-		if((args->type & CF_MTYPE) != CF_INT)
+		if(CF_TYPE(args->type) != CF_INT)
 		{
 			conf_report_error
 				("listener::port argument is not an integer " "-- ignoring.");
@@ -878,12 +876,12 @@ conf_set_listen_port_both(void *data, int ssl)
 #ifdef RB_IPV6
 			if(strchr(listener_address, ':') != NULL)
 				family = AF_INET6;
-			else 
+			else
 #endif
 				family = AF_INET;
-		
+
 			add_listener(args->v.number, listener_address, family, ssl, yy_defer_accept);
-                
+
                 }
 
 	}
@@ -969,7 +967,7 @@ conf_end_auth(struct TopConf *tc)
 
 		if(yy_aconf->spasswd)
 			yy_tmp->spasswd = rb_strdup(yy_aconf->spasswd);
-		
+
 		/* this will always exist.. */
 		yy_tmp->info.name = rb_strdup(yy_aconf->info.name);
 
@@ -1181,7 +1179,7 @@ conf_set_shared_oper(void *data)
 
 	if(args->next != NULL)
 	{
-		if((args->type & CF_MTYPE) != CF_QSTRING)
+		if(CF_TYPE(args->type) != CF_QSTRING)
 		{
 			conf_report_error("Ignoring shared::oper -- server is not a qstring");
 			return;
@@ -1193,7 +1191,7 @@ conf_set_shared_oper(void *data)
 	else
 		yy_shared->server = rb_strdup("*");
 
-	if((args->type & CF_MTYPE) != CF_QSTRING)
+	if(CF_TYPE(args->type) != CF_QSTRING)
 	{
 		conf_report_error("Ignoring shared::oper -- oper is not a qstring");
 		return;
@@ -1637,7 +1635,7 @@ conf_set_general_default_umodes(void *data)
 			}
 			break;
 		}
-	}			
+	}
 }
 
 static void
@@ -1948,8 +1946,8 @@ cleanup_bl:
 	{
 		RB_DLINK_FOREACH_SAFE(ptr, nptr, yy_blacklist_filters.head)
 		{
-			rb_free(ptr);
 			rb_dlinkDelete(ptr, &yy_blacklist_filters);
+			rb_free(ptr);
 		}
 	}
 	else
@@ -2012,11 +2010,13 @@ conf_start_block(char *block, char *name)
 int
 conf_end_block(struct TopConf *tc)
 {
+	int ret = 0;
 	if(tc->tc_efunc)
-		return tc->tc_efunc(tc);
+		ret = tc->tc_efunc(tc);
 
 	rb_free(conf_cur_block_name);
-	return 0;
+	conf_cur_block_name = NULL;
+	return ret;
 }
 
 static void
@@ -2039,7 +2039,7 @@ conf_set_generic_string(void *data, int len, void *location)
 }
 
 int
-conf_call_set(struct TopConf *tc, char *item, conf_parm_t * value, int type)
+conf_call_set(struct TopConf *tc, char *item, conf_parm_t * value)
 {
 	struct ConfEntry *cf;
 	conf_parm_t *cp;
@@ -2068,7 +2068,7 @@ conf_call_set(struct TopConf *tc, char *item, conf_parm_t * value, int type)
 
 	if(CF_TYPE(value->v.list->type) != CF_TYPE(cf->cf_type))
 	{
-		/* if it expects a string value, but we got a yesno, 
+		/* if it expects a string value, but we got a yesno,
 		 * convert it back
 		 */
 		if((CF_TYPE(value->v.list->type) == CF_YESNO) &&
@@ -2144,7 +2144,7 @@ add_conf_item(const char *topconf, const char *name, int type, void (*func) (voi
 	if((tc = find_top_conf(topconf)) == NULL)
 		return -1;
 
-	if((cf = find_conf_item(tc, name)) != NULL)
+	if(find_conf_item(tc, name) != NULL)
 		return -1;
 
 	cf = rb_malloc(sizeof(struct ConfEntry));
@@ -2196,7 +2196,7 @@ static struct ConfEntry conf_serverinfo_table[] =
 
 	{ "ssl_private_key",    CF_QSTRING, NULL, 0, &ServerInfo.ssl_private_key },
 	{ "ssl_ca_cert",        CF_QSTRING, NULL, 0, &ServerInfo.ssl_ca_cert },
-	{ "ssl_cert",           CF_QSTRING, NULL, 0, &ServerInfo.ssl_cert },   
+	{ "ssl_cert",           CF_QSTRING, NULL, 0, &ServerInfo.ssl_cert },
 	{ "ssl_dh_params",      CF_QSTRING, NULL, 0, &ServerInfo.ssl_dh_params },
 	{ "ssld_count",		CF_INT,	    NULL, 0, &ServerInfo.ssld_count },
 
@@ -2442,7 +2442,7 @@ newconf_init()
 	add_top_conf("auth", conf_begin_auth, conf_end_auth, conf_auth_table);
 
 	add_top_conf("shared", conf_cleanup_shared, conf_cleanup_shared, NULL);
-	add_conf_item("shared", "oper", CF_QSTRING|CF_FLIST, conf_set_shared_oper);
+	add_conf_item("shared", "oper", CF_QSTRING | CF_FLIST, conf_set_shared_oper);
 	add_conf_item("shared", "flags", CF_STRING | CF_FLIST, conf_set_shared_flags);
 
 	add_top_conf("connect", conf_begin_connect, conf_end_connect, conf_connect_table);

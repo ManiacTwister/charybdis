@@ -128,7 +128,7 @@ static void wipe_schema(void);
 static void drop_dupes(const char *user, const char *host, const char *t);
 
 /**
- *  swing your pants 
+ *  swing your pants
  */
 int
 main(int argc, char *argv[])
@@ -541,6 +541,8 @@ import_config(const char *conf, int id)
 
 	if(flag.verbose)
 		fprintf(stdout, "%*s\n", strlen(bandb_suffix[id]) > 0 ? 10 : 15, "imported.");
+
+	fclose(fd);
 
 	return;
 }

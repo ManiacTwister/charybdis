@@ -12,6 +12,7 @@ AC_COPYRIGHT([$Id: configure.ac 3516 2007-06-10 16:14:03Z jilles $])
 
 AC_INIT([charybdis], [3.5.0-dev])
 
+AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADER(include/setup.h)
 
 AC_PREFIX_DEFAULT($HOME/ircd)
@@ -253,7 +254,7 @@ AC_SUBST([pkglibdir])
 AC_SUBST([rundir])
 AC_SUBST([pkgrundir])
 AC_SUBST([pkglocalstatedir])
-AC_DEFINE_DIR([PKGLOCALSTATEDIR], [pkglocalstatedir], [[Directory in which to store state, such as band database]])
+AC_DEFINE_DIR([PKGLOCALSTATEDIR], [pkglocalstatedir], [[Directory in which to store state, such as ban database]])
 AC_SUBST([pkglibexecdir])
 AC_DEFINE_DIR([PKGLIBEXECDIR], [pkglibexecdir], [Directory where binaries the IRCd itself spawns live])
 
@@ -563,6 +564,27 @@ AC_CHECK_HEADER(zlib.h, [
 ], zlib=no)
 
 fi
+
+dnl Check for shared sqlite
+dnl ======================
+AC_ARG_WITH(shared-sqlite,
+AC_HELP_STRING([--with-shared-sqlite],[Use shared sqlite]),
+[shared_sqlite=$withval],[shared_sqlite=no])
+
+if test "$shared_sqlite" = yes; then
+	PKG_CHECK_MODULES(SQLITE, [sqlite3],
+	[
+		shared_sqlite=yes
+	], shared_sqlite=no)
+fi
+
+if test "$shared_sqlite" = no; then
+	SQLITE_SRC="sqlite3.c"
+fi
+
+AC_SUBST(SQLITE_LD, "$SQLITE_LIBS")
+AC_SUBST(SQLITE_INCLUDES, "$SQLITE_CFLAGS")
+AC_SUBST(SQLITE_SRC)
 
 dnl IO Loop Selection
 dnl =================
