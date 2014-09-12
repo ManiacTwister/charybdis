@@ -1040,8 +1040,6 @@ chm_admin(struct Client *source_p, struct Channel *chptr,
         {
                 mode_changes[mode_count].letter = c;
                 mode_changes[mode_count].dir = MODE_ADD;
-                mode_changes[mode_count].caps = 0;
-                mode_changes[mode_count].nocaps = 0;
                 mode_changes[mode_count].mems = ALL_MEMBERS;
                 mode_changes[mode_count].id = targ_p->id;
                 mode_changes[mode_count].arg = targ_p->name;
@@ -1060,8 +1058,6 @@ chm_admin(struct Client *source_p, struct Channel *chptr,
 
                 mode_changes[mode_count].letter = c;
                 mode_changes[mode_count].dir = MODE_DEL;
-                mode_changes[mode_count].caps = 0;
-                mode_changes[mode_count].nocaps = 0;
                 mode_changes[mode_count].mems = ALL_MEMBERS;
                 mode_changes[mode_count].id = targ_p->id;
                 mode_changes[mode_count].arg = targ_p->name;
@@ -1210,8 +1206,6 @@ chm_halfop(struct Client *source_p, struct Channel *chptr,
 
                 mode_changes[mode_count].letter = c;
                 mode_changes[mode_count].dir = MODE_ADD;
-                mode_changes[mode_count].caps = 0;
-                mode_changes[mode_count].nocaps = 0;
                 mode_changes[mode_count].mems = ALL_MEMBERS;
                 mode_changes[mode_count].id = targ_p->id;
                 mode_changes[mode_count].arg = targ_p->name;
@@ -1230,8 +1224,6 @@ chm_halfop(struct Client *source_p, struct Channel *chptr,
 
                 mode_changes[mode_count].letter = c;
                 mode_changes[mode_count].dir = MODE_DEL;
-                mode_changes[mode_count].caps = 0;
-                mode_changes[mode_count].nocaps = 0;
                 mode_changes[mode_count].mems = ALL_MEMBERS;
                 mode_changes[mode_count].id = targ_p->id;
                 mode_changes[mode_count].arg = targ_p->name;
