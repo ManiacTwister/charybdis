@@ -1060,7 +1060,7 @@ find_prop_ban(unsigned int status, const char *user, const char *host)
 }
 
 void
-deactivate_conf(struct ConfItem *aconf, rb_dlink_node *ptr)
+deactivate_conf(struct ConfItem *aconf, rb_dlink_node *ptr, time_t now)
 {
 	int i;
 
@@ -1099,7 +1099,7 @@ deactivate_conf(struct ConfItem *aconf, rb_dlink_node *ptr)
 			del_from_resv_hash(aconf->host, aconf);
 			break;
 	}
-	if (aconf->lifetime != 0 && rb_current_time() < aconf->lifetime)
+	if (aconf->lifetime != 0 && now < aconf->lifetime)
 		aconf->status |= CONF_ILLEGAL;
 	else
 	{
@@ -1135,7 +1135,7 @@ replace_old_ban(struct ConfItem *aconf)
 			aconf->lifetime = aconf->hold;
 		/* Tell deactivate_conf() to destroy it. */
 		oldconf->lifetime = rb_current_time();
-		deactivate_conf(oldconf, ptr);
+		deactivate_conf(oldconf, ptr, oldconf->lifetime);
 	}
 }
 
@@ -1145,13 +1145,15 @@ expire_prop_bans(void *list)
 	rb_dlink_node *ptr;
 	rb_dlink_node *next_ptr;
 	struct ConfItem *aconf;
+	time_t now;
 
+	now = rb_current_time();
 	RB_DLINK_FOREACH_SAFE(ptr, next_ptr, ((rb_dlink_list *) list)->head)
 	{
 		aconf = ptr->data;
 
-		if(aconf->lifetime <= rb_current_time() ||
-				(aconf->hold <= rb_current_time() &&
+		if(aconf->lifetime <= now ||
+				(aconf->hold <= now &&
 				 !(aconf->status & CONF_ILLEGAL)))
 		{
 			/* Alert opers that a TKline expired - Hwy */
@@ -1165,7 +1167,7 @@ expire_prop_bans(void *list)
 						     aconf->host ? aconf->host : "*");
 
 			/* will destroy or mark illegal */
-			deactivate_conf(aconf, ptr);
+			deactivate_conf(aconf, ptr, now);
 		}
 	}
 }
